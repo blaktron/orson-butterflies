@@ -8,6 +8,7 @@ the fragment and into a real <head>.
 """
 import pathlib
 import re
+import shutil
 
 ROOT = pathlib.Path(__file__).parent
 SRC = ROOT / "schnauzer-butterfly-chase.html"
@@ -16,9 +17,8 @@ OUT = ROOT / "site" / "index.html"
 TITLE = "Schnauzer Butterfly Chase"
 BLURB = ("A 3D dog-park romp: steer a giant schnauzer with the keyboard, "
          "catch butterflies before closing time, and hold on through the zoomies.")
-FAVICON = ("data:image/svg+xml,"
-           "<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>"
-           "<text y=%22.9em%22 font-size=%2290%22>%F0%9F%A6%8B</text></svg>")
+ASSETS = ROOT / "assets"
+RAW = "https://raw.githubusercontent.com/blaktron/orson-butterflies/main/assets"
 
 fragment = SRC.read_text(encoding="utf-8")
 
@@ -40,10 +40,12 @@ document = f"""<!doctype html>
 <meta name="description" content="{BLURB}">
 <meta name="theme-color" content="#12301c">
 <meta name="color-scheme" content="dark">
-<link rel="icon" href="{FAVICON}">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-512.png">
 <meta property="og:type" content="website">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{BLURB}">
+<meta property="og:image" content="{RAW}/icon-512.png">
 <meta name="twitter:card" content="summary_large_image">
 {head_links}
 <style>
@@ -64,3 +66,9 @@ document = f"""<!doctype html>
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(document, encoding="utf-8")
 print(f"wrote {OUT} ({len(document):,} bytes)")
+
+for name in ("icon.svg", "icon-512.png"):
+    src = ASSETS / name
+    if src.exists():
+        shutil.copy2(src, OUT.parent / name)
+        print(f"copied {name}")

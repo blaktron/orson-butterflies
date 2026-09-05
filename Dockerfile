@@ -4,6 +4,7 @@
 FROM python:3.12-alpine AS build
 WORKDIR /src
 COPY build-site.py schnauzer-butterfly-chase.html ./
+COPY assets/ ./assets/
 RUN python build-site.py
 
 # ---- serve: plain nginx, no runtime dependencies --------------------------
@@ -14,7 +15,7 @@ FROM nginx:1.27-alpine
 ENV PORT=8080
 
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
-COPY --from=build /src/site/index.html /usr/share/nginx/html/index.html
+COPY --from=build /src/site/ /usr/share/nginx/html/
 
 EXPOSE 8080
 

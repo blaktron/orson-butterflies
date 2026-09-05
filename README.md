@@ -15,6 +15,7 @@ game itself.
 | `compose.yaml` | one-command local run |
 | `.github/workflows/publish.yml` | builds and pushes `ghcr.io/blaktron/orson-butterflies` on every push to `main` |
 | `unraid/orson-butterflies.xml` | dockerMan template for Unraid |
+| `assets/icon.svg` | the icon — favicon, apple-touch icon, share image and Unraid tile, rendered to PNG alongside it |
 
 The game is authored as an Artifact fragment (no `<!doctype>`, `<html>`, `<head>`
 or `<body>` — the Artifact host supplies those). `build-site.py` lifts the

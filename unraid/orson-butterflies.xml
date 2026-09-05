@@ -22,7 +22,7 @@
   <Category>Other:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/blaktron/orson-butterflies/main/unraid/orson-butterflies.xml</TemplateURL>
-  <Icon/>
+  <Icon>https://raw.githubusercontent.com/blaktron/orson-butterflies/main/assets/icon-256.png</Icon>
   <ExtraParams>--restart unless-stopped</ExtraParams>
   <PostArgs/>
   <CPUset/>

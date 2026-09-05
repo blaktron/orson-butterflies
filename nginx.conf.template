@@ -21,6 +21,13 @@ server {
         add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
     }
 
+    # icons and anything else static: cache hard, they are content-addressed
+    # by deploy rather than by name, and a stale icon is harmless
+    location ~* \.(svg|png|ico|woff2?)$ {
+        add_header Cache-Control "public, max-age=604800" always;
+        try_files $uri =404;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
     }
