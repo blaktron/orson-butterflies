@@ -133,6 +133,45 @@
         font-family:var(--body);font-size:12px;padding:7px 12px;border-radius:9px;}
   #mute:hover{transform:none;box-shadow:none;color:var(--cream);}
   @media (max-width:560px){#hint{display:none}#score{font-size:32px}}
+
+  /* ---- touch controls ---- */
+  body.touch{touch-action:manipulation;-webkit-user-select:none;user-select:none;
+             -webkit-tap-highlight-color:transparent;}
+  body.touch #hint{display:none;}
+  #touch{position:fixed;inset:0;pointer-events:none;z-index:5;
+         padding:env(safe-area-inset-top) env(safe-area-inset-right)
+                 env(safe-area-inset-bottom) env(safe-area-inset-left);}
+  #stickzone{position:absolute;left:0;bottom:0;width:54%;height:66%;
+             pointer-events:auto;touch-action:none;}
+  #stick{position:absolute;width:136px;height:136px;margin:-68px 0 0 -68px;
+         border-radius:99px;border:2px solid rgba(247,239,225,.3);
+         background:rgba(15,38,23,.42);backdrop-filter:blur(6px);
+         opacity:0;transition:opacity .16s;pointer-events:none;}
+  #stick.on{opacity:1;}
+  #knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;
+        border-radius:99px;background:var(--amber);box-shadow:0 5px 16px rgba(0,0,0,.5);
+        transition:background .12s;}
+  #stick.run #knob{background:#7fc4ff;box-shadow:0 5px 20px rgba(95,168,238,.7);}
+  #tjump{position:absolute;right:24px;bottom:34px;width:116px;height:116px;
+         border-radius:99px;pointer-events:auto;touch-action:none;font-size:15px;
+         box-shadow:0 5px 0 #b9741a;}
+  #tjump:active{transform:translateY(3px);box-shadow:0 2px 0 #b9741a;}
+  #tpause{position:absolute;right:24px;top:104px;width:52px;height:52px;padding:0;
+          border-radius:99px;pointer-events:auto;font-size:15px;
+          background:rgba(15,38,23,.72);color:rgba(247,239,225,.85);
+          border:1px solid rgba(247,239,225,.2);box-shadow:none;}
+  #tpause:active{transform:translateY(2px);box-shadow:none;}
+  body.touch #mute{bottom:auto;top:166px;right:24px;}
+  #touchhint{position:absolute;left:0;right:0;bottom:14px;text-align:center;
+             font-size:12px;color:rgba(247,239,225,.75);transition:opacity .8s;}
+  @media (max-height:620px){
+    .sign{padding:20px 22px 18px;}
+    h1{font-size:clamp(26px,5.4vw,36px);}
+    .lede{font-size:14px;margin-top:10px;}
+    .rules{font-size:12.5px;gap:7px;margin-top:14px;}
+    .go{margin-top:16px;}
+    #veil{overflow:auto;align-items:start;}
+  }
   @media (prefers-reduced-motion:reduce){#chain.pop{animation-duration:.01ms}}
 </style>
 
@@ -178,6 +217,15 @@
   </div>
 </div>
 <button id="mute" type="button">Sound: on</button>
+
+<div id="touch" hidden>
+  <div id="stickzone">
+    <div id="stick"><div id="knob"></div></div>
+  </div>
+  <button id="tjump" type="button">Pounce</button>
+  <button id="tpause" type="button" aria-label="Pause">II</button>
+  <div id="touchhint">Drag anywhere on the left to run &middot; push all the way forward to sprint</div>
+</div>
 
 <div id="veil">
   <div class="sign" id="sign">
@@ -1398,6 +1446,102 @@ window.addEventListener('blur', function(){
   if(G.state === 'play') setPause(true);
 });
 
+/* -------------------------------------------------------------- touch input */
+// A floating thumbstick on the left half and a pounce pad on the right, driven
+// by pointer events so the same code answers a finger, a stylus or a mouse.
+var touch = {on:false, active:false, fwd:0, turn:0, sprint:false, jump:false,
+             id:null, ox:0, oy:0};
+var TOUCH_RADIUS = 62;
+var tEl = {
+  layer:document.getElementById('touch'),
+  zone:document.getElementById('stickzone'),
+  stick:document.getElementById('stick'),
+  knob:document.getElementById('knob'),
+  jump:document.getElementById('tjump'),
+  pause:document.getElementById('tpause'),
+  hint:document.getElementById('touchhint')
+};
+
+function enableTouch(){
+  if(touch.on) return;
+  touch.on = true;
+  document.body.classList.add('touch');
+  syncTouchUI();
+}
+function syncTouchUI(){
+  // called once at start-up, before the game state object exists
+  var playing = touch.on && typeof G !== 'undefined' && G && G.state === 'play';
+  tEl.layer.hidden = !playing;
+  if(tEl.layer.hidden) releaseStick();
+}
+function releaseStick(){
+  touch.id = null;
+  touch.active = false;
+  touch.fwd = 0; touch.turn = 0; touch.sprint = false;
+  tEl.stick.classList.remove('on', 'run');
+  tEl.knob.style.transform = '';
+}
+function stickTo(clientX, clientY){
+  var dx = clientX - touch.ox, dy = clientY - touch.oy;
+  var len = Math.hypot(dx, dy);
+  if(len > TOUCH_RADIUS){ dx *= TOUCH_RADIUS/len; dy *= TOUCH_RADIUS/len; }
+  tEl.knob.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px)';
+  var fwd = -dy / TOUCH_RADIUS, turn = -dx / TOUCH_RADIUS, dead = 0.14;
+  touch.fwd = Math.abs(fwd) < dead ? 0
+            : T.MathUtils.clamp((fwd - Math.sign(fwd)*dead)/(1-dead), -1, 1);
+  touch.turn = Math.abs(turn) < dead ? 0
+             : T.MathUtils.clamp((turn - Math.sign(turn)*dead)/(1-dead), -1, 1);
+  touch.sprint = touch.fwd > 0.84;
+  tEl.stick.classList.toggle('run', touch.sprint);
+}
+
+tEl.zone.addEventListener('pointerdown', function(ev){
+  enableTouch();
+  if(touch.id !== null) return;
+  ev.preventDefault();
+  touch.id = ev.pointerId;
+  touch.active = true;
+  touch.ox = ev.clientX; touch.oy = ev.clientY;
+  var box = tEl.zone.getBoundingClientRect();
+  tEl.stick.style.left = (ev.clientX - box.left) + 'px';
+  tEl.stick.style.top  = (ev.clientY - box.top) + 'px';
+  tEl.stick.classList.add('on');
+  try { tEl.zone.setPointerCapture(ev.pointerId); } catch(e){}
+  stickTo(ev.clientX, ev.clientY);
+});
+tEl.zone.addEventListener('pointermove', function(ev){
+  if(ev.pointerId !== touch.id) return;
+  ev.preventDefault();
+  stickTo(ev.clientX, ev.clientY);
+});
+function endStick(ev){
+  if(ev.pointerId !== touch.id) return;
+  releaseStick();
+}
+tEl.zone.addEventListener('pointerup', endStick);
+tEl.zone.addEventListener('pointercancel', endStick);
+tEl.zone.addEventListener('lostpointercapture', endStick);
+
+tEl.jump.addEventListener('pointerdown', function(ev){
+  enableTouch();
+  ev.preventDefault();
+  touch.jump = true;
+  try { tEl.jump.setPointerCapture(ev.pointerId); } catch(e){}
+});
+function endJump(){ touch.jump = false; }
+tEl.jump.addEventListener('pointerup', endJump);
+tEl.jump.addEventListener('pointercancel', endJump);
+tEl.jump.addEventListener('lostpointercapture', endJump);
+tEl.pause.addEventListener('click', function(ev){ ev.preventDefault(); togglePause(); });
+
+// coarse pointers get the controls straight away; anything else waits until a
+// finger actually lands, so a laptop with a touchscreen keeps its keyboard HUD
+if((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+   /[?&]touch=1/.test(window.location.search)){
+  enableTouch();
+}
+window.addEventListener('touchstart', function(){ enableTouch(); }, {passive:true});
+
 /* --------------------------------------------------------------- game state */
 var G = {state:'ready', mode:'timed', sandbox:false, hard:false, ultra:false,
          ropes:0, zoomMax:7, now:0, score:0, caught:0, time:ROUND, chain:0, chainTimer:0,
@@ -1494,6 +1638,7 @@ function resetRun(){
   legs[3].pivot.rotation.z = 0;
   endZoomies(true);
   el.hint.style.opacity = '1';
+  tEl.hint.style.opacity = '1';
   paintHud();
 }
 
@@ -1589,6 +1734,7 @@ function startRun(mode){
   resetRun();
   G.state = 'play';
   el.veil.classList.add('hidden');
+  syncTouchUI();
   sfxWoof();
 }
 function goReady(){
@@ -1602,6 +1748,7 @@ function goReady(){
   el.sign.innerHTML = READY_HTML;
   bindSign();
   el.veil.classList.remove('hidden');
+  syncTouchUI();
 }
 function endRun(){
   G.state = 'over';
@@ -1654,6 +1801,7 @@ function endRun(){
     '<span class="meta">Space &middot; H hard &middot; F free</span></div>';
   bindSign();
   el.veil.classList.remove('hidden');
+  syncTouchUI();
   sfxEnd();
 }
 function setPause(on){
@@ -1666,9 +1814,11 @@ function setPause(on){
       '<span class="meta">P to resume</span></div>';
     bindSign();
     el.veil.classList.remove('hidden');
+    syncTouchUI();
   } else if(!on && G.state === 'paused'){
     G.state = 'play';
     el.veil.classList.add('hidden');
+    syncTouchUI();
   }
 }
 function togglePause(){
@@ -1695,17 +1845,18 @@ var camAim = new T.Vector3(0, 2, 22);
 var tmp = new T.Vector3();
 
 function updateDog(dt){
-  var fwd = (keys.KeyW || keys.ArrowUp) ? 1 : 0;
-  var back = (keys.KeyS || keys.ArrowDown) ? 1 : 0;
-  var left = (keys.KeyA || keys.ArrowLeft) ? 1 : 0;
-  var right = (keys.KeyD || keys.ArrowRight) ? 1 : 0;
-  var sprint = keys.ShiftLeft || keys.ShiftRight || G.runLock;
+  var axF = ((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0);
+  var axT = ((keys.KeyA || keys.ArrowLeft) ? 1 : 0) - ((keys.KeyD || keys.ArrowRight) ? 1 : 0);
+  if(touch.active){
+    axF = T.MathUtils.clamp(axF + touch.fwd, -1, 1);
+    axT = T.MathUtils.clamp(axT + touch.turn, -1, 1);
+  }
+  var sprint = keys.ShiftLeft || keys.ShiftRight || G.runLock || touch.sprint;
 
   var inWater = Math.hypot(dogState.x - POND.x, dogState.z - POND.z) < POND.r ||
                 inStream(dogState.x, dogState.z);
   var top = (sprint ? 15.5 : 9.5) * (inWater ? 0.5 : 1);
-  var want = (fwd - back) * top;
-  if(back && !fwd) want = -5.5 * (inWater ? 0.5 : 1);
+  var want = axF >= 0 ? axF * top : axF * 5.5 * (inWater ? 0.5 : 1);
 
   // during the zoomies nobody is steering, least of all the player
   var zoomTurn = null;
@@ -1761,7 +1912,7 @@ function updateDog(dt){
   if(Math.abs(dogState.speed) < 0.05) dogState.speed = 0;
 
   var turn = zoomTurn !== null ? zoomTurn
-           : (left - right) * (2.6 + Math.min(Math.abs(dogState.speed), 10) * 0.06);
+           : axT * (2.6 + Math.min(Math.abs(dogState.speed), 10) * 0.06);
   dogState.yaw += turn * dt;
 
   var sinY = Math.sin(dogState.yaw), cosY = Math.cos(dogState.yaw);
@@ -1807,7 +1958,7 @@ function updateDog(dt){
   }
 
   // pounce
-  if((keys.Space) && !dogState.air && dogState.y <= 0.001){
+  if((keys.Space || touch.jump) && !dogState.air && dogState.y <= 0.001){
     dogState.vy = 10.2; dogState.air = true; sfxWoof();
   }
   if(dogState.air){
@@ -2479,7 +2630,7 @@ function tick(){
       G.barkTimer -= dt;
       if(G.barkTimer <= 0) bark();
     }
-    if(G.elapsed > 7) el.hint.style.opacity = '0';
+    if(G.elapsed > 7){ el.hint.style.opacity = '0'; tEl.hint.style.opacity = '0'; }
     updateDog(dt);
     if(!G.sandbox){
       G.time -= dt;
@@ -2533,6 +2684,6 @@ paintHud();
 tick();
 
 // a small handle for debugging in the console
-window.__orson = {camera:camera, scene:scene, dog:dog, dogState:dogState, G:G};
+window.__orson = {camera:camera, scene:scene, dog:dog, dogState:dogState, G:G, touch:touch};
 })();
 </script>

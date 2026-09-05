@@ -69,6 +69,16 @@ and inject `PORT` themselves. Nothing else to configure.
 **Your own box**: `docker run -d --restart unless-stopped -p 8080:8080 …` behind
 Caddy or nginx for TLS.
 
+## Controls
+
+Keyboard: `W A S D` or the arrow keys to run and steer, `Shift` (or a double-tap
+of forward) to sprint, `Space` to pounce, `P` to pause, `M` to mute.
+
+Touch: the controls appear automatically on a coarse pointer, or on the first
+touch anywhere. Drag anywhere in the lower-left to raise a floating thumbstick —
+push it forward all the way to sprint — and tap the pad on the right to pounce.
+Append `?touch=1` to the URL to force the touch layer on a desktop browser.
+
 ## Notes
 
 - The page pulls Three.js from cdnjs and two families from Google Fonts, so the
