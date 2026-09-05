@@ -1,0 +1,5 @@
+site/
+*.md
+.git/
+.github/
+compose.yaml
